@@ -162,12 +162,17 @@ func (m *Request) Parse(content []byte) error {
 			return err
 		}
 
+		if err == io.EOF {
+			return nil
+		}
+
+		if data == "\n" {
+			continue
+		}
+
 		if err := m.parseInc(data); err != nil {
 			return err
 		}
 
-		if err == io.EOF {
-			return nil
-		}
 	}
 }
