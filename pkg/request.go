@@ -5,6 +5,8 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"net"
+	"net/textproto"
 	"regexp"
 	"strconv"
 	"strings"
@@ -134,6 +136,12 @@ type Request struct {
 	RequestLine
 	CSeq
 	RequestMessages
+}
+
+func (m *Request) GenRequest(conn net.Conn) error {
+	rd := textproto.NewReader(bufio.NewReader(conn))
+	rd.ReadLine()
+	return nil
 }
 
 func (m *Request) Parse(content []byte) error {

@@ -47,68 +47,28 @@ type MethodStateTupple struct {
 type ServerStatusMachine struct {
 	st              state
 	transitionTable map[MethodStateTupple]TransitionFunc
+
+	SetupInitHandler       TransitionFunc
+	TeardownInitHandler    TransitionFunc
+	SetupReadyHandler      TransitionFunc
+	PlayReadyHandler       TransitionFunc
+	SetupPlayingHandler    TransitionFunc
+	PausePlayingHandler    TransitionFunc
+	TeardownPlayingHandler TransitionFunc
+	OptionsHandler         TransitionFunc
+	DescribeHandler        TransitionFunc
 }
 
 func (m *ServerStatusMachine) Init() {
 	m.transitionTable = map[MethodStateTupple]TransitionFunc{
-		{SETUP, INIT}:       m.tSetupInit,
-		{TEARDOWN, INIT}:    m.tTeardownInit,
-		{SETUP, READY}:      m.tSetupReady,
-		{PLAY, READY}:       m.tPlayReady,
-		{SETUP, PLAYING}:    m.tSetupPlaying,
-		{PAUSE, PLAYING}:    m.tPausePlaying,
-		{TEARDOWN, PLAYING}: m.tTeardownPlaying,
+		{SETUP, INIT}:       m.SetupInitHandler,
+		{TEARDOWN, INIT}:    m.TeardownInitHandler,
+		{SETUP, READY}:      m.SetupReadyHandler,
+		{PLAY, READY}:       m.PlayReadyHandler,
+		{SETUP, PLAYING}:    m.SetupPlayingHandler,
+		{PAUSE, PLAYING}:    m.PausePlayingHandler,
+		{TEARDOWN, PLAYING}: m.TeardownPlayingHandler,
 	}
-}
-
-//状态转移方法
-func (m *ServerStatusMachine) tSetupInit(r *Request) *Response {
-	m.st = READY
-	return nil
-}
-
-//状态转移方法
-func (m *ServerStatusMachine) tTeardownInit(r *Request) *Response {
-	m.st = INIT
-	return nil
-}
-
-//状态转移方法
-func (m *ServerStatusMachine) tSetupReady(r *Request) *Response {
-	m.st = READY
-	return nil
-}
-
-//状态转移方法
-func (m *ServerStatusMachine) tPlayReady(r *Request) *Response {
-	m.st = PLAYING
-	return nil
-}
-
-//状态转移方法
-func (m *ServerStatusMachine) tSetupPlaying(r *Request) *Response {
-	m.st = PLAYING
-	return nil
-}
-
-//状态转移方法
-func (m *ServerStatusMachine) tPausePlaying(r *Request) *Response {
-	m.st = READY
-	return nil
-}
-
-//状态转移方法
-func (m *ServerStatusMachine) tTeardownPlaying(r *Request) *Response {
-	m.st = INIT
-	return nil
-}
-
-func (m *ServerStatusMachine) options(r *Request) *Response {
-	return nil
-}
-
-func (m *ServerStatusMachine) describe(r *Request) *Response {
-	return nil
 }
 
 func (m *ServerStatusMachine) Request(r *Request) *Response {
@@ -121,9 +81,9 @@ func (m *ServerStatusMachine) Request(r *Request) *Response {
 		//不需要更改状态机状态
 		switch r.M {
 		case Method2String[OPTION]:
-			return m.options(r)
+			return m.OptionsHandler(r)
 		case Method2String[DESCRIBE]:
-			return m.describe(r)
+			return m.DescribeHandler(r)
 		default:
 			return nil
 		}
