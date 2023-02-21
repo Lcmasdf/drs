@@ -2,7 +2,6 @@ package pkg
 
 import (
 	"bufio"
-	"bytes"
 	"fmt"
 	"io"
 	"net"
@@ -55,9 +54,6 @@ func (m *RequestLine) parse(content string) error {
 	//RFC2326
 	//Request-Line = Method SP Request-URI SP RTSP-Version CRLF
 
-	// 去掉换行
-	content = strings.Replace(content, "\n", "", -1)
-
 	parts := strings.Split(content, " ")
 	if len(parts) != 3 {
 		return fmt.Errorf("request-line parse failed: %s", content)
@@ -86,9 +82,6 @@ type CSeq struct {
 func (m *CSeq) parse(content string) error {
 	//CSeq = "CSeq" ":" " *DIGIT" CRLF
 
-	//去掉换行
-	content = strings.Replace(content, "\n", "", -1)
-
 	seqReg := regexp.MustCompile("CSeq: ([0-9]+)")
 	r := seqReg.FindStringSubmatch(content)
 	if r == nil {
@@ -114,10 +107,10 @@ func (m *RequestMessages) parseInc(content string) error {
 		m.messages = make(map[string]string)
 	}
 
-	reg := regexp.MustCompile("(.*): (.*)\n")
+	reg := regexp.MustCompile("(.*): (.*)")
 	rets := reg.FindStringSubmatch(content)
 	if len(rets) != 3 {
-		return fmt.Errorf("request message parse failed: %s", content)
+		return fmt.Errorf("request message parse failed: %s||", content)
 	}
 	m.messages[rets[1]] = rets[2]
 	return nil
@@ -139,14 +132,11 @@ type Request struct {
 }
 
 func (m *Request) GenRequest(conn net.Conn) error {
-	rd := textproto.NewReader(bufio.NewReader(conn))
-	rd.ReadLine()
-	return nil
+	return m.Parse(*textproto.NewReader(bufio.NewReader(conn)))
 }
 
-func (m *Request) Parse(content []byte) error {
-	b := bufio.NewReader(bytes.NewReader(content))
-	requestLine, err := b.ReadString('\n')
+func (m *Request) Parse(trd textproto.Reader) error {
+	requestLine, err := trd.ReadLine()
 	if err != nil {
 		return err
 	}
@@ -155,7 +145,7 @@ func (m *Request) Parse(content []byte) error {
 		return err
 	}
 
-	cseq, err := b.ReadString('\n')
+	cseq, err := trd.ReadLine()
 	if err != nil {
 		return err
 	}
@@ -165,17 +155,17 @@ func (m *Request) Parse(content []byte) error {
 	}
 
 	for {
-		data, err := b.ReadString('\n')
+		data, err := trd.ReadLine()
 		if err != nil && err != io.EOF {
 			return err
 		}
 
 		if err == io.EOF {
-			return nil
+			return err
 		}
 
-		if data == "\n" {
-			continue
+		if data == "" {
+			return nil
 		}
 
 		if err := m.parseInc(data); err != nil {

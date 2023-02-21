@@ -2,7 +2,7 @@ package pkg
 
 import "fmt"
 
-// var methods []string = []string{"DESCRIBE", "SETUP", "TEARDOWN", "PLAY", "PAUSE"}
+var methods []string = []string{"DESCRIBE", "SETUP", "TEARDOWN", "PLAY", "PAUSE"}
 
 type StatusLine struct {
 	RTSPVersion  string

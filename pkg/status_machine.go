@@ -12,7 +12,7 @@ const (
 type method int
 
 const (
-	OPTION method = iota
+	OPTIONS method = iota
 	DESCRIBE
 	SETUP
 	TEARDOWN
@@ -21,7 +21,7 @@ const (
 )
 
 var Method2String = map[method]string{
-	OPTION:   "OPTION",
+	OPTIONS:  "OPTIONS",
 	DESCRIBE: "DESCRIBE",
 	SETUP:    "SETUP",
 	TEARDOWN: "TEARDOWN",
@@ -30,7 +30,7 @@ var Method2String = map[method]string{
 }
 
 var Method2method = map[string]method{
-	"OPTION":   OPTION,
+	"OPTION":   OPTIONS,
 	"DESCRIBE": DESCRIBE,
 	"SETUP":    SETUP,
 	"TEARDOWN": TEARDOWN,
@@ -80,7 +80,7 @@ func (m *ServerStatusMachine) Request(r *Request) *Response {
 	} else {
 		//不需要更改状态机状态
 		switch r.M {
-		case Method2String[OPTION]:
+		case Method2String[OPTIONS]:
 			return m.OptionsHandler(r)
 		case Method2String[DESCRIBE]:
 			return m.DescribeHandler(r)
