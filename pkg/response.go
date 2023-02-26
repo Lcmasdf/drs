@@ -15,10 +15,6 @@ func (m *StatusLine) gen() string {
 	return fmt.Sprintf("%s %s %s\n", m.RTSPVersion, m.StatusCode, m.ReasonPhrase)
 }
 
-func (m *CSeq) gen() string {
-	return fmt.Sprintf("CSeq: %d\n", m.Seq)
-}
-
 type ResponseMessages struct {
 	messages map[string]string
 }
@@ -41,14 +37,12 @@ func (m *ResponseMessages) gen() string {
 
 type Response struct {
 	StatusLine
-	CSeq
 	ResponseMessages
 }
 
 func (m *Response) Gen() string {
 	ret := ""
 	ret += m.StatusLine.gen()
-	ret += m.CSeq.gen()
 	ret += m.ResponseMessages.gen()
 	ret += "\n"
 	return ret

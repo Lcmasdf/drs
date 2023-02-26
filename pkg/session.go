@@ -40,15 +40,16 @@ func (rss *RtspServerSession) Run() {
 			fmt.Println("gen request failed", err.Error())
 			break
 		}
+		fmt.Println(req)
 
 		resp := rss.sm.Request(req)
+		fmt.Println(resp)
 		data := resp.Gen()
 
-		n, err := rss.conn.Write([]byte(data))
+		_, err = rss.conn.Write([]byte(data))
 		if err != nil {
 			fmt.Println("write line failed ", err.Error())
 		}
-		fmt.Println("response write ", n)
 	}
 }
 
@@ -65,9 +66,7 @@ func (rss *RtspServerSession) OptionsHandler(r *Request) *Response {
 			StatusCode:   "200",
 			ReasonPhrase: "OK",
 		},
-		CSeq: CSeq{
-			Seq: rss.seq,
-		},
 	}
+	ret.AddMessage("CSeq", fmt.Sprintf("%d", rss.seq))
 	return ret
 }

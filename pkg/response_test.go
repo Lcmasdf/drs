@@ -9,7 +9,6 @@ import (
 func TestResponse(t *testing.T) {
 	Convey("test response gen", t, func() {
 		resp := Response{}
-		resp.Seq = 100
 		resp.StatusCode = "200"
 		resp.ReasonPhrase = "OK"
 		resp.RTSPVersion = "RTSP/1.0"

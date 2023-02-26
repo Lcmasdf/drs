@@ -9,6 +9,8 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+
+	"gitlab.bj.sensetime.com/nebula/common/log"
 )
 
 // for RequestLine
@@ -74,29 +76,6 @@ func (m *RequestLine) parse(content string) error {
 	return nil
 }
 
-//for request
-type CSeq struct {
-	Seq int64
-}
-
-func (m *CSeq) parse(content string) error {
-	//CSeq = "CSeq" ":" " *DIGIT" CRLF
-
-	seqReg := regexp.MustCompile("CSeq: ([0-9]+)")
-	r := seqReg.FindStringSubmatch(content)
-	if r == nil {
-		return fmt.Errorf("CSeq parse failed: %s", content)
-	}
-
-	var err error
-	m.Seq, err = strconv.ParseInt(r[1], 10, 64)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
 type RequestMessages struct {
 	messages map[string]string
 }
@@ -127,8 +106,9 @@ func (m *RequestMessages) GetMessage(msgType string) (string, bool) {
 
 type Request struct {
 	RequestLine
-	CSeq
 	RequestMessages
+
+	Seq int64
 }
 
 func (m *Request) GenRequest(conn net.Conn) error {
@@ -140,22 +120,15 @@ func (m *Request) Parse(trd textproto.Reader) error {
 	if err != nil {
 		return err
 	}
+	log.Info(requestLine)
 
 	if err := m.RequestLine.parse(requestLine); err != nil {
 		return err
 	}
 
-	cseq, err := trd.ReadLine()
-	if err != nil {
-		return err
-	}
-
-	if err := m.CSeq.parse(cseq); err != nil {
-		return err
-	}
-
 	for {
 		data, err := trd.ReadLine()
+		log.Info(data)
 		if err != nil && err != io.EOF {
 			return err
 		}
@@ -165,12 +138,23 @@ func (m *Request) Parse(trd textproto.Reader) error {
 		}
 
 		if data == "" {
-			return nil
+			break
 		}
 
 		if err := m.parseInc(data); err != nil {
 			return err
 		}
-
 	}
+	seq, ok := m.messages["CSeq"]
+	if !ok {
+		return fmt.Errorf("no cseq")
+	}
+
+	// m.Seq = seq
+	m.Seq, err = strconv.ParseInt(seq, 10, 64)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
