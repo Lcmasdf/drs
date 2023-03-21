@@ -15,18 +15,3 @@ github.com/smartystreets/assertions/internal/oglematchers
 github.com/smartystreets/goconvey/convey
 github.com/smartystreets/goconvey/convey/gotest
 github.com/smartystreets/goconvey/convey/reporting
-# gitlab.bj.sensetime.com/nebula/common/atomic v0.0.0-20211229062239-a767d0ce5b92
-## explicit; go 1.13
-gitlab.bj.sensetime.com/nebula/common/atomic
-# gitlab.bj.sensetime.com/nebula/common/log v1.1.3
-## explicit; go 1.13
-gitlab.bj.sensetime.com/nebula/common/log
-gitlab.bj.sensetime.com/nebula/common/log/buffer
-gitlab.bj.sensetime.com/nebula/common/log/core
-gitlab.bj.sensetime.com/nebula/common/log/internal/bufferpool
-gitlab.bj.sensetime.com/nebula/common/log/internal/color
-gitlab.bj.sensetime.com/nebula/common/log/internal/exit
-gitlab.bj.sensetime.com/nebula/common/log/internal/lumberjack
-# gitlab.bj.sensetime.com/nebula/common/multierr v0.0.0-20211229063304-efb9fcc9fed9
-## explicit; go 1.13
-gitlab.bj.sensetime.com/nebula/common/multierr
