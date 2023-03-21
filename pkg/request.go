@@ -2,6 +2,7 @@ package pkg
 
 import (
 	"bufio"
+	"bytes"
 	"fmt"
 	"io"
 	"net"
@@ -150,11 +151,121 @@ func (m *Request) Parse(trd textproto.Reader) error {
 		return fmt.Errorf("no cseq")
 	}
 
-	// m.Seq = seq
 	m.Seq, err = strconv.ParseInt(seq, 10, 64)
 	if err != nil {
 		return err
 	}
 
 	return nil
+}
+
+type Transport struct {
+	Items []*TransportItem
+}
+
+func parseTransport(b []byte) (*Transport, error) {
+	ret := &Transport{
+		Items: make([]*TransportItem, 0),
+	}
+	items := bytes.Split(b, []byte(","))
+	for _, item := range items {
+		t, err := parseTransportItem(item)
+		if err != nil {
+			return nil, err
+		}
+		ret.Items = append(ret.Items, t)
+	}
+	return ret, nil
+}
+
+type TransportItem struct {
+	Protocol       string
+	Profile        string
+	LowerTransport string
+	Cast           string
+	Parameter      map[string][]byte
+
+	//RTP
+	//for multicast
+	Port1       int
+	Port2       int
+	ClientPort1 int
+	ClientPort2 int
+	ServerPort1 int
+	ServerPort2 int
+	Ssrc        string
+}
+
+func parseTransportItem(b []byte) (*TransportItem, error) {
+	ret := &TransportItem{
+		Parameter: make(map[string][]byte),
+	}
+
+	// RTP/AVP;unicast;client_port=3456-3457;mode="PLAY"
+	parts := bytes.Split(b, []byte(";"))
+	if len(parts) < 2 {
+		return nil, fmt.Errorf("invalid transportitem %s", string(b))
+	}
+
+	specs := bytes.Split(parts[0], []byte("/"))
+	ret.Protocol = string(specs[0])
+	ret.Profile = string(specs[1])
+	if len(specs) == 3 {
+		ret.LowerTransport = "TCP"
+	} else {
+		ret.LowerTransport = "UDP"
+	}
+
+	ret.Cast = string(parts[1])
+
+	for i := 2; i < len(parts); i++ {
+		index := bytes.Index(parts[i], []byte("="))
+		if index == -1 {
+			return nil, fmt.Errorf("invalid transportitem %s", string(b))
+		}
+
+		var err error
+		switch string(parts[i][:index]) {
+		case "port":
+			ret.Port1, ret.Port2, err = transportRtpPortConv(parts[i][index+1:])
+			if err != nil {
+				return nil, fmt.Errorf("invalid transportitem %s", string(b))
+			}
+		case "client_port":
+			ret.ClientPort1, ret.ClientPort2, err = transportRtpPortConv(parts[i][index+1:])
+			if err != nil {
+				return nil, fmt.Errorf("invalid transportitem %s", string(b))
+			}
+		case "server_port":
+			ret.ServerPort1, ret.ServerPort2, err = transportRtpPortConv(parts[i][index+1:])
+			if err != nil {
+				return nil, fmt.Errorf("invalid transportitem %s", string(b))
+			}
+		case "ssrc":
+			ret.Ssrc = string(parts[i][index+1:])
+		default:
+			ret.Parameter[string(parts[i][:index])] = parts[i][index+1:]
+		}
+	}
+
+	return ret, nil
+}
+
+func transportRtpPortConv(p []byte) (int, int, error) {
+	index := bytes.Index(p, []byte("-"))
+	if index == -1 {
+		return -1, -1, fmt.Errorf("invalid rtp port: %s", p)
+	}
+
+	p1, err := strconv.ParseInt(string(p[:index]), 10, 64)
+	if err != nil {
+		return -1, -1, fmt.Errorf("invalid rtp port: %s", p)
+	}
+
+	p2, err := strconv.ParseInt(string(p[index+1:]), 10, 64)
+	if err != nil {
+		return -1, -1, fmt.Errorf("invalid rtp port: %s", p)
+	}
+
+	return int(p1), int(p2), nil
 }
