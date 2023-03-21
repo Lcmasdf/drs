@@ -10,8 +10,6 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-
-	"gitlab.bj.sensetime.com/nebula/common/log"
 )
 
 // for RequestLine
@@ -121,7 +119,7 @@ func (m *Request) Parse(trd textproto.Reader) error {
 	if err != nil {
 		return err
 	}
-	log.Info(requestLine)
+	fmt.Println(requestLine)
 
 	if err := m.RequestLine.parse(requestLine); err != nil {
 		return err
@@ -129,7 +127,7 @@ func (m *Request) Parse(trd textproto.Reader) error {
 
 	for {
 		data, err := trd.ReadLine()
-		log.Info(data)
+		fmt.Println(data)
 		if err != nil && err != io.EOF {
 			return err
 		}
