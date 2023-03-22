@@ -176,6 +176,18 @@ func parseTransport(b []byte) (*Transport, error) {
 	return ret, nil
 }
 
+func genTransport(trans *Transport) ([]byte, error) {
+	ret := make([]byte, 0)
+	for _, v := range trans.Items {
+		itemB, err := genTransportItem(v)
+		if err != nil {
+			return nil, err
+		}
+		ret = append(ret, itemB...)
+	}
+	return ret, nil
+}
+
 type TransportItem struct {
 	Protocol       string
 	Profile        string
@@ -208,10 +220,10 @@ func parseTransportItem(b []byte) (*TransportItem, error) {
 	specs := bytes.Split(parts[0], []byte("/"))
 	ret.Protocol = string(specs[0])
 	ret.Profile = string(specs[1])
-	if len(specs) == 3 {
-		ret.LowerTransport = "TCP"
-	} else {
+	if len(specs) == 2 {
 		ret.LowerTransport = "UDP"
+	} else {
+		ret.LowerTransport = string(specs[2])
 	}
 
 	ret.Cast = string(parts[1])
@@ -266,4 +278,43 @@ func transportRtpPortConv(p []byte) (int, int, error) {
 	}
 
 	return int(p1), int(p2), nil
+}
+
+func genTransportItem(t *TransportItem) ([]byte, error) {
+	// bytes.Join()
+	parts := make([][]byte, 0)
+
+	//RTP/AVP
+	p1 := fmt.Sprintf("%s/%s", t.Protocol, t.Profile)
+	if t.LowerTransport != "" {
+		p1 = fmt.Sprintf("%s/%s", p1, t.LowerTransport)
+	}
+	parts = append(parts, []byte(p1))
+	// unicast/multicast
+	parts = append(parts, []byte(t.Cast))
+	//port=3456-3457
+	if t.Port1 != 0 {
+		portStr := fmt.Sprintf("port=%d-%d", t.Port1, t.Port2)
+		parts = append(parts, []byte(portStr))
+	}
+	//client_port=18276-18277
+	if t.ClientPort1 != 0 {
+		clientPortStr := fmt.Sprintf("client_port=%d-%d", t.ClientPort1, t.ClientPort2)
+		parts = append(parts, []byte(clientPortStr))
+	}
+	//server_port=40658-40659
+	if t.ServerPort1 != 0 {
+		serverPortStr := fmt.Sprintf("server_port=%d-%d", t.ServerPort1, t.ServerPort2)
+		parts = append(parts, []byte(serverPortStr))
+	}
+	//ssrc
+	if t.Ssrc != "" {
+		ssrcStr := fmt.Sprintf("ssrc=%s", t.Ssrc)
+		parts = append(parts, []byte(ssrcStr))
+	}
+	for k, v := range t.Parameter {
+		paraStr := fmt.Sprintf("%s=%s", k, v)
+		parts = append(parts, []byte(paraStr))
+	}
+	return bytes.Join(parts, []byte(";")), nil
 }
