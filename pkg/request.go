@@ -176,6 +176,18 @@ func parseTransport(b []byte) (*Transport, error) {
 	return ret, nil
 }
 
+func genTransport(trans *Transport) ([]byte, error) {
+	ret := make([]byte, 0)
+	for _, v := range trans.Items {
+		itemB, err := genTransportItem(v)
+		if err != nil {
+			return nil, err
+		}
+		ret = append(ret, itemB...)
+	}
+	return ret, nil
+}
+
 type TransportItem struct {
 	Protocol       string
 	Profile        string
@@ -208,10 +220,10 @@ func parseTransportItem(b []byte) (*TransportItem, error) {
 	specs := bytes.Split(parts[0], []byte("/"))
 	ret.Protocol = string(specs[0])
 	ret.Profile = string(specs[1])
-	if len(specs) == 3 {
-		ret.LowerTransport = "TCP"
-	} else {
+	if len(specs) == 2 {
 		ret.LowerTransport = "UDP"
+	} else {
+		ret.LowerTransport = string(specs[2])
 	}
 
 	ret.Cast = string(parts[1])
