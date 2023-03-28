@@ -2,6 +2,7 @@ package pkg
 
 import (
 	"fmt"
+	"math/rand"
 	"net"
 	"strings"
 	"time"
@@ -16,11 +17,13 @@ type RtspServerSession struct {
 
 	sm *ServerStatusMachine
 
-	// id string
+	sessionId string
 
 	seq int64
 
 	sdp sdp.SDP
+
+	transport *TransportItem
 }
 
 func NewRtspServerSession(conn net.Conn) *RtspServerSession {
@@ -126,10 +129,55 @@ func (rss *RtspServerSession) SetupInitHandler(r *Request) *Response {
 		return ret
 	}
 
-	for _, item := range t.Items {
-		fmt.Println(item.Cast)
-		fmt.Println(item.Protocol)
+	//TODO: transport select
+	// for test, use index 0 transport item
+	rss.transport = t.Items[0]
+
+	// TODO: get pair of udp ports
+	// use 30001-30002
+	rss.transport.ServerPort1 = 30001
+	rss.transport.ServerPort2 = 30002
+
+	// gen ssrc
+	rss.transport.Ssrc = genSsrc()
+
+	// gen session
+	rss.sessionId = genRandomSessionId()
+	session, err := genSession(&Session{
+		SessionId: rss.sessionId,
+		Timeout:   60,
+	})
+	if err != nil {
+		ret.StatusCode = "500"
+		ret.ReasonPhrase = err.Error()
+		return ret
+	}
+	ret.AddMessage("Session", string(session))
+
+	transResp := &Transport{
+		Items: []*TransportItem{
+			rss.transport,
+		},
 	}
 
+	transRespByte, err := genTransport(transResp)
+	if err != nil {
+		ret.StatusCode = "500"
+		ret.ReasonPhrase = err.Error()
+		return ret
+	}
+
+	ret.AddMessage("Transport", string(transRespByte))
+
 	return ret
+}
+
+func genRandomSessionId() string {
+	rand.Seed(time.Now().UnixNano())
+	return fmt.Sprintf("%d", rand.Int63())
+}
+
+func genSsrc() string {
+	rand.Seed(time.Now().UnixNano())
+	return fmt.Sprintf("%08x", rand.Uint32())
 }

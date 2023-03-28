@@ -267,3 +267,74 @@ func transportRtpPortConv(p []byte) (int, int, error) {
 
 	return int(p1), int(p2), nil
 }
+
+func genTransportItem(t *TransportItem) ([]byte, error) {
+	// bytes.Join()
+	parts := make([][]byte, 0)
+
+	//RTP/AVP
+	p1 := fmt.Sprintf("%s/%s", t.Protocol, t.Profile)
+	if t.LowerTransport != "" {
+		p1 = fmt.Sprintf("%s/%s", p1, t.LowerTransport)
+	}
+	parts = append(parts, []byte(p1))
+	// unicast/multicast
+	parts = append(parts, []byte(t.Cast))
+	//port=3456-3457
+	if t.Port1 != 0 {
+		portStr := fmt.Sprintf("port=%d-%d", t.Port1, t.Port2)
+		parts = append(parts, []byte(portStr))
+	}
+	//client_port=18276-18277
+	if t.ClientPort1 != 0 {
+		clientPortStr := fmt.Sprintf("client_port=%d-%d", t.ClientPort1, t.ClientPort2)
+		parts = append(parts, []byte(clientPortStr))
+	}
+	//server_port=40658-40659
+	if t.ServerPort1 != 0 {
+		serverPortStr := fmt.Sprintf("server_port=%d-%d", t.ServerPort1, t.ServerPort2)
+		parts = append(parts, []byte(serverPortStr))
+	}
+	//ssrc
+	if t.Ssrc != "" {
+		ssrcStr := fmt.Sprintf("ssrc=%s", t.Ssrc)
+		parts = append(parts, []byte(ssrcStr))
+	}
+	for k, v := range t.Parameter {
+		paraStr := fmt.Sprintf("%s=%s", k, v)
+		parts = append(parts, []byte(paraStr))
+	}
+	return bytes.Join(parts, []byte(";")), nil
+}
+
+type Session struct {
+	SessionId string
+	Timeout   uint64
+}
+
+func parseSession(b []byte) (*Session, error) {
+	index := bytes.Index(b, []byte(";"))
+	if index == -1 {
+		return &Session{
+			SessionId: string(b),
+		}, nil
+	}
+
+	timeout, err := strconv.ParseUint(string(b[index+1:]), 10, 64)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Session{
+		SessionId: string(b[:index]),
+		Timeout:   timeout,
+	}, nil
+}
+
+func genSession(s *Session) ([]byte, error) {
+	if s.Timeout == 0 {
+		return []byte(s.SessionId), nil
+	}
+
+	return []byte(fmt.Sprintf("%s;timeout=%d", s.SessionId, s.Timeout)), nil
+}
