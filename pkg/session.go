@@ -45,6 +45,7 @@ func (rss *RtspServerSession) Init() {
 	rss.sm.OptionsHandler = rss.OptionsHandler
 	rss.sm.DescribeHandler = rss.DescribeHandler
 	rss.sm.SetupInitHandler = rss.SetupInitHandler
+	rss.sm.PlayReadyHandler = rss.PlayReadyHandler
 	rss.sm.Init()
 }
 
@@ -180,4 +181,60 @@ func genRandomSessionId() string {
 func genSsrc() string {
 	rand.Seed(time.Now().UnixNano())
 	return fmt.Sprintf("%08x", rand.Uint32())
+}
+
+func (rss *RtspServerSession) PlayReadyHandler(r *Request) *Response {
+	rss.seq = r.Seq
+	resp := &Response{
+		StatusLine: StatusLine{
+			RTSPVersion:  r.Version,
+			StatusCode:   "200",
+			ReasonPhrase: "OK",
+		},
+	}
+
+	resp.AddMessage("CSeq", fmt.Sprintf("%d", rss.seq))
+	sessionStr, err := genSession(&Session{
+		SessionId: rss.sessionId})
+	if err != nil {
+		resp.StatusCode = "500"
+		resp.ReasonPhrase = err.Error()
+		return resp
+	}
+
+	resp.AddMessage("CSeq", fmt.Sprintf("%d", rss.seq))
+
+	resp.AddMessage("Session", string(sessionStr))
+
+	rg, _ := genRange(&Range{
+		Npt: &RangeNpt{
+			NptStartTime: "0.000000",
+		},
+	})
+
+	resp.AddMessage("Range", string(rg))
+
+	rtpInfo := &RTPInfo{
+		Items: []*RTPInfoItem{
+			{
+				Url:     "trackID=0",
+				Seq:     "59394",
+				RtpTime: "1271981258",
+			},
+			{
+				Url:     "trackID=1",
+				Seq:     "9530",
+				RtpTime: "35281645",
+			},
+			{
+				Url:     "trackID=2",
+				Seq:     "30356",
+				RtpTime: "35302471",
+			},
+		},
+	}
+
+	resp.AddMessage("RTP-Info", string(genRTPInfo(rtpInfo)))
+
+	return resp
 }

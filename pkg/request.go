@@ -350,3 +350,211 @@ func genSession(s *Session) ([]byte, error) {
 
 	return []byte(fmt.Sprintf("%s;timeout=%d", s.SessionId, s.Timeout)), nil
 }
+
+// frame-level accuracy , relative to the start
+type RangeSmpte struct {
+	SmpteType      string
+	SmpteStartTime string
+	SmpteEndTime   string
+}
+
+func parseRangeSmpte(b []byte) (*RangeSmpte, error) {
+	ret := &RangeSmpte{}
+	indexEqual := bytes.Index(b, []byte("="))
+	if indexEqual == -1 {
+		return nil, fmt.Errorf("invalid range smpte: %s", string(b))
+	}
+	ret.SmpteType = string(b[:indexEqual])
+
+	indexHorizon := bytes.Index(b, []byte("-"))
+	ret.SmpteStartTime = string(b[indexEqual+1 : indexHorizon])
+	ret.SmpteEndTime = string(b[indexHorizon+1:])
+
+	return ret, nil
+}
+
+func genRangeSmpte(r *RangeSmpte) []byte {
+	if len(r.SmpteEndTime) == 0 {
+		return []byte(fmt.Sprintf("%s=%s-", r.SmpteType, r.SmpteStartTime))
+	} else {
+		return []byte(fmt.Sprintf("%s=%s-%s", r.SmpteType, r.SmpteStartTime, r.SmpteEndTime))
+	}
+}
+
+// absolute position relative to the beginning of the presentation
+type RangeNpt struct {
+	NptStartTime string
+	NptEndTime   string
+	Now          bool
+}
+
+func parseRangeNpt(b []byte) (*RangeNpt, error) {
+	ret := &RangeNpt{}
+	indexEqual := bytes.Index(b, []byte("-"))
+	if indexEqual == -1 {
+		return nil, fmt.Errorf("invalid range npt: %s", string(b))
+	}
+	if indexEqual == 0 {
+		ret.NptEndTime = string(b[indexEqual+1:])
+	} else {
+		if string(b[:indexEqual]) == "now" {
+			ret.Now = true
+		} else {
+			ret.NptStartTime = string(b[:indexEqual])
+		}
+		ret.NptEndTime = string(b[indexEqual+1:])
+	}
+	return ret, nil
+}
+
+func genRangeNpt(r *RangeNpt) []byte {
+	if r.Now {
+		return []byte(fmt.Sprintf("now-%s", r.NptEndTime))
+	} else if len(r.NptStartTime) == 0 {
+		return []byte(fmt.Sprintf("-%s", r.NptEndTime))
+	} else {
+		return []byte(fmt.Sprintf("%s-%s", r.NptStartTime, r.NptEndTime))
+	}
+}
+
+type RangeUtc struct {
+	UtcStartTime string
+	UtcEndTime   string
+}
+
+func parseRangeUtc(b []byte) (*RangeUtc, error) {
+	ret := &RangeUtc{}
+	indexEqual := bytes.Index(b, []byte("="))
+	indexHorizon := bytes.Index(b, []byte("-"))
+
+	ret.UtcStartTime = string(b[indexEqual+1 : indexHorizon])
+	ret.UtcEndTime = string(b[indexHorizon+1:])
+	return ret, nil
+}
+
+func genRangeUtc(r *RangeUtc) []byte {
+	return []byte(fmt.Sprintf("clock=%s-%s", r.UtcStartTime, r.UtcEndTime))
+}
+
+type Range struct {
+	Smpte *RangeSmpte
+	Npt   *RangeNpt
+	Utc   *RangeUtc
+	Time  string
+}
+
+func parseTime(b []byte) ([]byte, error) {
+	index := bytes.Index(b, []byte("="))
+	if index == -1 {
+		return nil, fmt.Errorf("invalid time: %s", string(b))
+	}
+	return b[index+1:], nil
+}
+
+func genTime(t string) []byte {
+	return []byte(fmt.Sprintf("time=%s", t))
+}
+
+func parseRange(b []byte) (*Range, error) {
+	ret := &Range{}
+	var err error
+	index := bytes.Index(b, []byte(";"))
+	if index == -1 {
+		return nil, fmt.Errorf("invalid range: %s", string(b))
+	}
+	specifier := b[:index]
+	if bytes.HasPrefix(specifier, []byte("smpte")) {
+		ret.Smpte, err = parseRangeSmpte(specifier)
+		if err != nil {
+			return nil, err
+		}
+	} else if bytes.HasPrefix(specifier, []byte("npt")) {
+		ret.Npt, err = parseRangeNpt(specifier)
+		if err != nil {
+			return nil, err
+		}
+	} else if bytes.HasPrefix(specifier, []byte("clock")) {
+		ret.Utc, err = parseRangeUtc(specifier)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		return nil, fmt.Errorf("invalid range: %s", string(b))
+	}
+
+	if index+1 < len(b) {
+		var timeBytes []byte
+		timeBytes, err = parseTime(b[index+1:])
+		if err != nil {
+			return nil, err
+		}
+		ret.Time = string(timeBytes)
+	}
+	return ret, nil
+}
+
+func genRange(r *Range) ([]byte, error) {
+	ret := make([]byte, 0)
+	if r.Smpte != nil {
+		ret = append(ret, genRangeSmpte(r.Smpte)...)
+	}
+	if r.Npt != nil {
+		ret = append(ret, genRangeNpt(r.Npt)...)
+	}
+	if r.Utc != nil {
+		ret = append(ret, genRangeUtc(r.Utc)...)
+	}
+	if len(r.Time) != 0 {
+		ret = append(ret, genTime(r.Time)...)
+	}
+	return ret, nil
+}
+
+type RTPInfoItem struct {
+	Url     string
+	Seq     string
+	RtpTime string
+}
+
+type RTPInfo struct {
+	Items []*RTPInfoItem
+}
+
+func parseRTPInfo(b []byte) (*RTPInfo, error) {
+	ret := &RTPInfo{}
+	items := bytes.Split(b, []byte(","))
+	for _, item := range items {
+		parts := bytes.Split(item, []byte(";"))
+		rtpItem := &RTPInfoItem{}
+		for _, part := range parts {
+			if bytes.HasPrefix(part, []byte("url")) {
+				rtpItem.Url = string(part[4:])
+			} else if bytes.HasPrefix(part, []byte("seq")) {
+				rtpItem.Seq = string(part[4:])
+			} else if bytes.HasPrefix(part, []byte("rtptime")) {
+				rtpItem.RtpTime = string(part[8:])
+			} else {
+				return nil, fmt.Errorf("invalid rtp info: %s", string(b))
+			}
+		}
+		ret.Items = append(ret.Items, rtpItem)
+	}
+	return ret, nil
+}
+
+func genRTPInfo(info *RTPInfo) []byte {
+	ret := make([]byte, 0)
+
+	for _, item := range info.Items {
+		itemStr := fmt.Sprintf("url=%s", item.Url)
+		if len(item.Seq) != 0 {
+			itemStr = fmt.Sprintf("%s;seq=%s", itemStr, item.Seq)
+		}
+		if len(item.RtpTime) != 0 {
+			itemStr = fmt.Sprintf("%s;rtptime=%s", itemStr, item.RtpTime)
+		}
+
+		ret = append(ret, []byte(itemStr)...)
+	}
+	return ret
+}

@@ -35,3 +35,17 @@ func TestTransportItem(t *testing.T) {
 		So(t, ShouldEqual, string(tNew))
 	})
 }
+
+func TestRangeSmpte(t *testing.T) {
+	Convey("test range smpte", t, func() {
+		r := "smpte=00:00:00.000-00:00:10.000"
+		smpte, err := parseRangeSmpte([]byte(r))
+		So(err, ShouldBeNil)
+		So(smpte.SmpteType, ShouldEqual, "smpte")
+		So(smpte.SmpteStartTime, ShouldEqual, "00:00:00.000")
+		So(smpte.SmpteEndTime, ShouldEqual, "00:00:10.000")
+
+		rNew := genRangeSmpte(smpte)
+		So(r, ShouldEqual, string(rNew))
+	})
+}
